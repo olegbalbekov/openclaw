@@ -330,6 +330,7 @@ export type ChannelPairingAdapter = {
   notifyApproval?: (params: {
     cfg: OpenClawConfig;
     id: string;
+    accountId?: string;
     runtime?: RuntimeEnv;
   }) => Promise<void>;
 };
