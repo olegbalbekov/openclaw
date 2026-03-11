@@ -495,7 +495,10 @@ async function runMatrixConfigure(params: {
 export const matrixOnboardingAdapter: ChannelSetupWizardAdapter = {
   channel,
   getStatus: async ({ cfg }) => {
-    const account = resolveMatrixAccount({ cfg: cfg as CoreConfig });
+    const account = resolveMatrixAccount({
+      cfg: cfg as CoreConfig,
+      accountId: resolveMatrixOnboardingAccountId(cfg as CoreConfig),
+    });
     const configured = account.configured;
     const sdkReady = isMatrixSdkAvailable();
     return {
