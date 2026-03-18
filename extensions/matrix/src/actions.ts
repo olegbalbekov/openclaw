@@ -1,3 +1,4 @@
+import { Type } from "@sinclair/typebox";
 import {
   createActionGate,
   readNumberParam,
@@ -6,10 +7,10 @@ import {
   type ChannelMessageActionAdapter,
   type ChannelMessageActionContext,
   type ChannelMessageActionName,
+  type ChannelMessageToolDiscovery,
   type ChannelToolSend,
 } from "openclaw/plugin-sdk/matrix";
 import { resolveDefaultMatrixAccountId, resolveMatrixAccount } from "./matrix/accounts.js";
-import { handleMatrixAction } from "./tool-actions.js";
 import type { CoreConfig } from "./types.js";
 
 const MATRIX_PLUGIN_HANDLED_ACTIONS = new Set<ChannelMessageActionName>([
@@ -64,25 +65,71 @@ function createMatrixExposedActions(params: {
   return actions;
 }
 
+function buildMatrixProfileToolSchema(): NonNullable<ChannelMessageToolDiscovery["schema"]> {
+  return {
+    properties: {
+      displayName: Type.Optional(
+        Type.String({
+          description: "Profile display name for Matrix self-profile update actions.",
+        }),
+      ),
+      display_name: Type.Optional(
+        Type.String({
+          description: "snake_case alias of displayName for Matrix self-profile update actions.",
+        }),
+      ),
+      avatarUrl: Type.Optional(
+        Type.String({
+          description:
+            "Profile avatar URL for Matrix self-profile update actions. Matrix accepts mxc:// and http(s) URLs.",
+        }),
+      ),
+      avatar_url: Type.Optional(
+        Type.String({
+          description:
+            "snake_case alias of avatarUrl for Matrix self-profile update actions. Matrix accepts mxc:// and http(s) URLs.",
+        }),
+      ),
+      avatarPath: Type.Optional(
+        Type.String({
+          description:
+            "Local avatar file path for Matrix self-profile update actions. Matrix uploads this file and sets the resulting MXC URI.",
+        }),
+      ),
+      avatar_path: Type.Optional(
+        Type.String({
+          description:
+            "snake_case alias of avatarPath for Matrix self-profile update actions. Matrix uploads this file and sets the resulting MXC URI.",
+        }),
+      ),
+    },
+  };
+}
+
 export const matrixMessageActions: ChannelMessageActionAdapter = {
-  listActions: ({ cfg }) => {
+  describeMessageTool: ({ cfg }) => {
     const resolvedCfg = cfg as CoreConfig;
     if (requiresExplicitMatrixDefaultAccount(resolvedCfg)) {
-      return [];
+      return { actions: [], capabilities: [] };
     }
     const account = resolveMatrixAccount({
       cfg: resolvedCfg,
       accountId: resolveDefaultMatrixAccountId(resolvedCfg),
     });
     if (!account.enabled || !account.configured) {
-      return [];
+      return { actions: [], capabilities: [] };
     }
     const gate = createActionGate(account.config.actions);
     const actions = createMatrixExposedActions({
       gate,
       encryptionEnabled: account.config.encryption === true,
     });
-    return Array.from(actions);
+    const listedActions = Array.from(actions);
+    return {
+      actions: listedActions,
+      capabilities: [],
+      schema: listedActions.includes("set-profile") ? buildMatrixProfileToolSchema() : null,
+    };
   },
   supportsAction: ({ action }) => MATRIX_PLUGIN_HANDLED_ACTIONS.has(action),
   extractToolSend: ({ args }): ChannelToolSend | null => {
@@ -97,6 +144,7 @@ export const matrixMessageActions: ChannelMessageActionAdapter = {
     return { to };
   },
   handleAction: async (ctx: ChannelMessageActionContext) => {
+    const { handleMatrixAction } = await import("./tool-actions.runtime.js");
     const { action, params, cfg, accountId, mediaLocalRoots } = ctx;
     const dispatch = async (actionParams: Record<string, unknown>) =>
       await handleMatrixAction(

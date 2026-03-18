@@ -1,3 +1,4 @@
+import { Type } from "@sinclair/typebox";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChannelMessageCapability } from "../../channels/plugins/message-capabilities.js";
 import {
@@ -91,6 +92,7 @@ function createChannelPlugin(params: {
   listActions?: NonNullable<NonNullable<ChannelPlugin["actions"]>["listActions"]>;
   capabilities?: readonly ChannelMessageCapability[];
   toolSchema?: NonNullable<NonNullable<ChannelPlugin["actions"]>["getToolSchema"]>;
+  describeMessageTool?: NonNullable<NonNullable<ChannelPlugin["actions"]>["describeMessageTool"]>;
   messaging?: ChannelPlugin["messaging"];
 }): ChannelPlugin {
   const actionCapabilities = params.capabilities;
@@ -111,6 +113,7 @@ function createChannelPlugin(params: {
     },
     ...(params.messaging ? { messaging: params.messaging } : {}),
     actions: {
+      ...(params.describeMessageTool ? { describeMessageTool: params.describeMessageTool } : {}),
       listActions:
         params.listActions ??
         (() => {
@@ -283,7 +286,17 @@ describe("message tool schema scoping", () => {
     label: "Matrix",
     docsPath: "/channels/matrix",
     blurb: "Matrix test plugin.",
-    actions: ["send", "set-profile"],
+    describeMessageTool: () => ({
+      actions: ["send", "set-profile"],
+      capabilities: [],
+      schema: {
+        properties: {
+          displayName: Type.Optional(Type.String()),
+          avatarUrl: Type.Optional(Type.String()),
+          avatarPath: Type.Optional(Type.String()),
+        },
+      },
+    }),
   });
 
   afterEach(() => {
@@ -548,22 +561,15 @@ describe("message tool schema scoping", () => {
       label: "Discord",
       docsPath: "/channels/discord",
       blurb: "Discord context plugin.",
-      listActions: (ctx) => {
-        seenContexts.push({ phase: "listActions", ...ctx });
-        return ["send", "react"];
-      },
-      toolSchema: (ctx) => {
-        seenContexts.push({ phase: "getToolSchema", ...ctx });
-        return null;
+      describeMessageTool: (ctx) => {
+        seenContexts.push({ phase: "describeMessageTool", ...ctx });
+        return {
+          actions: ["send", "react"],
+          capabilities: ["interactive"],
+          schema: null,
+        };
       },
     });
-    contextPlugin.actions = {
-      ...contextPlugin.actions,
-      getCapabilities: (ctx) => {
-        seenContexts.push({ phase: "getCapabilities", ...ctx });
-        return ["interactive"];
-      },
-    };
 
     setActivePluginRegistry(
       createTestRegistry([{ pluginId: "discord", source: "test", plugin: contextPlugin }]),

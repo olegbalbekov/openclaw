@@ -97,4 +97,6 @@ const plugin = {
   },
 };
 
+export { matrixPlugin } from "./src/channel.js";
+export { setMatrixRuntime } from "./src/runtime.js";
 export default plugin;

@@ -60,6 +60,8 @@ export type {
   ChannelDirectoryEntry,
   ChannelGroupContext,
   ChannelMessageActionAdapter,
+  ChannelMessageToolDiscovery,
+  ChannelMessageToolSchemaContribution,
   ChannelMessageActionContext,
   ChannelMessageActionName,
   ChannelOutboundAdapter,
